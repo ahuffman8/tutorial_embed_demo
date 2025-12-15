@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MicroStrategy Embedded Dashboard</title>
+    <script type="text/javascript" src="https://tutorial.microstrategy.com/MicroStrategyLibrary/javascript/embeddinglib.js"></script>
+    <style>
+        /* Optional: Set a height for the placeholder container */
+        #dashboardContainer {
+            width: 100%;
+            height: 800px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Embedded Dashboard</h1>
+    <div id="dashboardContainer"></div>
+
+    <script>
+        const LIBRARY_SERVER_URL = "https://tutorial.microstrategy.com/MicroStrategyLibrary";
+        const PROJECT_ID = "B7CA92F04B9FAE8D941C3E9B7E0CD754";
+        const DOSSIER_ID = "W6D95D8C8D8974C37A33382B13E5CC443";
+        
+        // 3. Define the embedding configuration
+        const embedConfig = {
+            serverUrl: LIBRARY_SERVER_URL,
+            placeholder: document.getElementById("dashboardContainer"),
+            projectId: PROJECT_ID,
+            dossierId: DOSSIER_ID,
+            // Since the user authenticated on the previous page, the browser has session cookies.
+            // We do not need custom authentication here, it will use the existing session.
+        };
+
+        // 4. Load the dashboard
+        microstrategy.dossier.create(embedConfig);
+        
+        // Optional: Add logic to redirect to login.html if embedding fails 
+        // due to an expired or missing session.
+    </script>
+</body>
+</html>
