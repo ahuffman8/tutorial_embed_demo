@@ -4,7 +4,7 @@
     <title>MicroStrategy Embedded Dashboard</title>
     <script type="text/javascript" src="https://tutorial.microstrategy.com/MicroStrategyLibrary/javascript/embeddinglib.js"></script>
     <style>
-        /* Optional: Set a height for the placeholder container */
+        /* Essential: Container must have a height/width to render the content */
         #dashboardContainer {
             width: 100%;
             height: 800px;
@@ -16,25 +16,24 @@
     <div id="dashboardContainer"></div>
 
     <script>
+        // --- CONSTANTS ---
         const LIBRARY_SERVER_URL = "https://tutorial.microstrategy.com/MicroStrategyLibrary";
+        // Project ID from the URL: B7CA92F04B9FAE8D941C3E9B7E0CD754
         const PROJECT_ID = "B7CA92F04B9FAE8D941C3E9B7E0CD754";
+        // Dashboard ID from the URL: W6D95D8C8D8974C37A33382B13E5CC443
         const DOSSIER_ID = "W6D95D8C8D8974C37A33382B13E5CC443";
         
-        // 3. Define the embedding configuration
-const embedConfig = {
-    serverUrl: LIBRARY_SERVER_URL,
-    placeholder: document.getElementById("dashboardContainer"),
-    projectId: PROJECT_ID,
-    // --- FIX IS HERE ---
-    objectID: DOSSIER_ID, // Use 'objectID' instead of 'dossierId'
-    // ---
-};
+        // --- EMBEDDING CONFIGURATION ---
+        // **CRITICAL FIX: Using the required property 'objectID'**
+        const embedConfig = {
+            serverUrl: LIBRARY_SERVER_URL,
+            placeholder: document.getElementById("dashboardContainer"),
+            projectId: PROJECT_ID,
+            objectID: DOSSIER_ID, // This must be 'objectID' for existing dossiers
+        };
 
-// 4. Load the dashboard
-microstrategy.dossier.create(embedConfig);
-        
-        // Optional: Add logic to redirect to login.html if embedding fails 
-        // due to an expired or missing session.
+        // --- LOAD DASHBOARD ---
+        microstrategy.dossier.create(embedConfig);
     </script>
 </body>
 </html>
