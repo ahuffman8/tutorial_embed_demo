@@ -21,17 +21,17 @@
         const DOSSIER_ID = "W6D95D8C8D8974C37A33382B13E5CC443";
         
         // 3. Define the embedding configuration
-        const embedConfig = {
-            serverUrl: LIBRARY_SERVER_URL,
-            placeholder: document.getElementById("dashboardContainer"),
-            projectId: PROJECT_ID,
-            dossierId: DOSSIER_ID,
-            // Since the user authenticated on the previous page, the browser has session cookies.
-            // We do not need custom authentication here, it will use the existing session.
-        };
+const embedConfig = {
+    serverUrl: LIBRARY_SERVER_URL,
+    placeholder: document.getElementById("dashboardContainer"),
+    projectId: PROJECT_ID,
+    // --- FIX IS HERE ---
+    objectID: DOSSIER_ID, // Use 'objectID' instead of 'dossierId'
+    // ---
+};
 
-        // 4. Load the dashboard
-        microstrategy.dossier.create(embedConfig);
+// 4. Load the dashboard
+microstrategy.dossier.create(embedConfig);
         
         // Optional: Add logic to redirect to login.html if embedding fails 
         // due to an expired or missing session.
