@@ -17,22 +17,23 @@
 
     <script>
         // --- CONSTANTS ---
-        const LIBRARY_SERVER_URL = "https://tutorial.microstrategy.com/MicroStrategyLibrary";
-        // Project ID from the URL: B7CA92F04B9FAE8D941C3E9B7E0CD754
-        const PROJECT_ID = "B7CA92F04B9FAE8D941C3E9B7E0CD754";
-        // Dashboard ID from the URL: W6D95D8C8D8974C37A33382B13E5CC443
-        const DOSSIER_ID = "W6D95D8C8D8974C37A33382B13E5CC443";
+        // 1. Use the FULL Library URL as a single variable (matching your working example)
+        const FULL_DOSSIER_URL = 
+            "https://tutorial.microstrategy.com/MicroStrategyLibrary/app/B7CA92F04B9FAE8D941C3E9B7E0CD754/152C22B1284EF1253585CA9B0FEE89E9/W6D95D8C8D8974C37A33382B13E5CC443--K35F5D5333A41B0387EDC7096D87A82BE";
         
         // --- EMBEDDING CONFIGURATION ---
-        // **CRITICAL FIX: Using the required property 'objectID'**
+        // 2. Use the 'url' property to satisfy the SDK requirement
         const embedConfig = {
-            serverUrl: LIBRARY_SERVER_URL,
+            url: FULL_DOSSIER_URL, // REQUIRED property: Using the URL method now
             placeholder: document.getElementById("dashboardContainer"),
-            projectId: PROJECT_ID,
-            objectID: DOSSIER_ID, // This must be 'objectID' for existing dossiers
+            containerHeight: "100%", // Use 100% to fill the 800px style height
+            containerWidth: "100%",
+            // Since login.html already established the SAML session, 
+            // the SDK will use the existing browser cookies/session token automatically.
         };
 
         // --- LOAD DASHBOARD ---
+        // This will now use the URL property and the existing authenticated session.
         microstrategy.dossier.create(embedConfig);
     </script>
 </body>
