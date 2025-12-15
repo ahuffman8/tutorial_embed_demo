@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MicroStrategy Dashboard Login</title>
+    <script type="text/javascript" src="https://tutorial.microstrategy.com/MicroStrategyLibrary/javascript/embeddinglib.js"></script>
+</head>
+<body>
+    <h1>Login to View Dashboard</h1>
+    <p>You will be redirected for SAML authentication.</p>
+    <div id="login-status">Initiating login...</div>
+
+    <script>
+        const LIBRARY_SERVER_URL = "https://tutorial.microstrategy.com/MicroStrategyLibrary";
+        const DASHBOARD_PAGE_URL = "dashboard.html"; // The page containing the embedded content
+
+        // Check if the user is already authenticated (e.g., via session/cookies)
+        // If a session exists, the samlLogin call below will be quick or subsequent Library calls will succeed.
+
+        function initiateSAML() {
+            // Use the recommended modern SAML login API.
+            // This function handles the redirection to the IdP and back to establish a session.
+            microstrategy.auth.samlLogin(LIBRARY_SERVER_URL)
+                .then(token => {
+                    // Authentication successful (session is established via token/cookies).
+                    // Redirect the user to the embedded content page.
+                    console.log("SAML login successful. Redirecting to dashboard...");
+                    document.getElementById('login-status').innerText = "Login successful! Redirecting...";
+                    window.location.href = DASHBOARD_PAGE_URL;
+                })
+                .catch(error => {
+                    // Handle errors (e.g., SAML not configured, user cancels, etc.)
+                    console.error("SAML login failed:", error);
+                    document.getElementById('login-status').innerText = "Login failed. Please try again.";
+                });
+        }
+
+        // We call the function immediately to start the flow. 
+        // For a button-driven flow, attach initiateSAML to a button's click event.
+        initiateSAML();
+    </script>
+</body>
+</html>
