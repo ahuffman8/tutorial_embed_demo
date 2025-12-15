@@ -18,105 +18,49 @@ class MicroStrategySAMLAuth:
         self.base_url = MSTR_CONFIG["base_url"]
         self.library_url = MSTR_CONFIG["library_url"]
     
-    def initiate_saml_login(self):
-        """Initiate SAML authentication flow"""
+    def validate_session(self):
+        """Check if user has active session by testing API access"""
         try:
-            # Get SAML login URL from MicroStrategy
-            saml_url = f"{self.library_url}/api/auth/saml"
+            # Test API endpoint that requires authentication
+            test_url = f"{self.library_url}/api/projects"
+            response = requests.get(test_url, timeout=10)
             
-            # For tutorial environment, we might need to handle this differently
-            # This would typically redirect to the SAML IdP
-            login_url = f"{self.library_url}/#/login"
-            
-            return {"success": True, "login_url": login_url}
-            
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-    
-    def validate_session(self, session_token=None):
-        """Validate if user has active session"""
-        try:
-            # Check session validity
-            response = requests.get(f"{self.library_url}/api/sessions", 
-                                  cookies={'X-MSTR-AuthToken': session_token} if session_token else None)
-            
+            # If we get a 200, user is authenticated
             if response.status_code == 200:
-                return {"success": True, "token": session_token}
+                return {"success": True, "authenticated": True}
+            # If we get 401, user needs to authenticate  
+            elif response.status_code == 401:
+                return {"success": True, "authenticated": False}
             else:
-                return {"success": False}
+                return {"success": False, "error": f"Unexpected response: {response.status_code}"}
                 
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             return {"success": False, "error": str(e)}
 
-def create_saml_login_component():
-    """Create SAML login component that handles the auth flow"""
+def create_saml_login_iframe():
+    """Create an iframe for SAML login"""
     
-    login_html = f"""
-    <div style="width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 8px;">
+    iframe_html = f"""
+    <div style="width: 100%; height: 600px; border: 2px solid #ddd; border-radius: 8px; overflow: hidden;">
         <iframe 
-            id="samlFrame"
-            src="{MSTR_CONFIG['library_url']}/#/login"
-            style="width: 100%; height: 100%; border: none; border-radius: 8px;"
-            onload="handleFrameLoad()"
+            id="samlLoginFrame"
+            src="{MSTR_CONFIG['library_url']}"
+            style="width: 100%; height: 100%; border: none;"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-top-navigation allow-popups"
         ></iframe>
     </div>
     
-    <script>
-        let authCheckInterval;
-        
-        function handleFrameLoad() {{
-            console.log('SAML frame loaded');
-            startAuthCheck();
-        }}
-        
-        function startAuthCheck() {{
-            authCheckInterval = setInterval(checkAuthStatus, 2000);
-        }}
-        
-        function checkAuthStatus() {{
-            try {{
-                // Try to access the iframe content to check if auth completed
-                const frame = document.getElementById('samlFrame');
-                const frameDoc = frame.contentDocument || frame.contentWindow.document;
-                
-                // Check if we're back at the main library page (auth successful)
-                if (frameDoc.location.href.includes('/{MSTR_CONFIG['project_id']}')) {{
-                    clearInterval(authCheckInterval);
-                    
-                    // Extract auth token from cookies or session
-                    fetch('{MSTR_CONFIG['library_url']}/api/sessions', {{
-                        credentials: 'include'
-                    }})
-                    .then(response => {{
-                        if (response.ok) {{
-                            // Notify Streamlit that auth is complete
-                            window.parent.postMessage({{
-                                type: 'SAML_AUTH_SUCCESS',
-                                token: 'authenticated'
-                            }}, '*');
-                        }}
-                    }});
-                }}
-            }} catch (e) {{
-                // Cross-origin restriction - normal for SAML flow
-                console.log('Checking auth status...');
-            }}
-        }}
-        
-        // Listen for successful navigation in iframe
-        window.addEventListener('message', function(event) {{
-            if (event.data.type === 'AUTH_SUCCESS') {{
-                clearInterval(authCheckInterval);
-                window.parent.postMessage({{
-                    type: 'SAML_AUTH_SUCCESS',
-                    token: event.data.token
-                }}, '*');
-            }}
-        }});
-    </script>
+    <div style="margin-top: 10px; padding: 10px; background: #f0f2f6; border-radius: 5px; font-size: 14px;">
+        <strong>Instructions:</strong>
+        <ol style="margin: 5px 0; padding-left: 20px;">
+            <li>If you see a login page above, enter your SAML credentials</li>
+            <li>After successful login, you should see the MicroStrategy library</li>
+            <li>Once logged in, click "Check Authentication" below</li>
+        </ol>
+    </div>
     """
     
-    return login_html
+    return iframe_html
 
 def create_mstr_dashboard():
     """Create the embedded MicroStrategy dashboard"""
@@ -133,8 +77,9 @@ def create_mstr_dashboard():
                 microstrategy.embeddingComponent.create({{
                     serverUrl: "{MSTR_CONFIG['base_url']}",
                     getAuthToken: function() {{
-                        // Return session token - in production you'd get this from authentication
-                        return window.mstrAuthToken || '';
+                        // For SAML environments, the token is often managed by cookies
+                        // Return empty string to use existing session
+                        return '';
                     }},
                     placeholder: document.getElementById("mstrDashboard"),
                     src: {{
@@ -150,6 +95,15 @@ def create_mstr_dashboard():
                     }},
                     customCss: {{
                         fontFamily: "Arial, sans-serif"
+                    }},
+                    onError: function(error) {{
+                        console.error('MicroStrategy embedding error:', error);
+                        document.getElementById("mstrDashboard").innerHTML = 
+                            '<div style="text-align: center; padding: 50px; color: #666;">' +
+                            '<h3>🔐 Authentication Required</h3>' +
+                            '<p>Please ensure you are logged in to MicroStrategy.</p>' +
+                            '<p>Error details: ' + JSON.stringify(error) + '</p>' +
+                            '</div>';
                     }}
                 }});
                 
@@ -165,11 +119,6 @@ def create_mstr_dashboard():
                     '</div>';
             }}
         }});
-        
-        // Set auth token when available
-        function setAuthToken(token) {{
-            window.mstrAuthToken = token;
-        }}
     </script>
     """
     
@@ -186,8 +135,8 @@ def main():
     # Initialize session state
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
-    if 'auth_token' not in st.session_state:
-        st.session_state.auth_token = None
+    if 'auth_checked' not in st.session_state:
+        st.session_state.auth_checked = False
     
     # Custom CSS
     st.markdown("""
@@ -204,12 +153,26 @@ def main():
             text-align: center;
         }
         .login-container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             padding: 2rem;
             background: #f8f9fa;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .auth-button {
+            background: #1f4e79;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            text-decoration: none;
+            display: inline-block;
+            margin: 0.5rem;
+            text-align: center;
+        }
+        .auth-button:hover {
+            background: #2d5aa0;
+            color: white;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -221,6 +184,19 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
+    # Auto-check authentication on first load
+    if not st.session_state.auth_checked:
+        with st.spinner("Checking authentication status..."):
+            auth = MicroStrategySAMLAuth()
+            result = auth.validate_session()
+            
+            if result.get("success") and result.get("authenticated"):
+                st.session_state.authenticated = True
+                st.success("✅ Already authenticated! Loading dashboard...")
+            
+            st.session_state.auth_checked = True
+            st.rerun()
+    
     if not st.session_state.authenticated:
         # Login Screen
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
@@ -228,86 +204,115 @@ def main():
         st.markdown("### 🔐 SAML Authentication Required")
         st.info("Please log in using your SAML credentials to access the MicroStrategy dashboard.")
         
-        col1, col2, col3 = st.columns([1, 2, 1])
+        # Method 1: Direct link (replaces the broken JavaScript approach)
+        st.markdown("#### Option 1: Login in New Tab")
+        login_url = f"{MSTR_CONFIG['library_url']}"
+        
+        st.markdown(f"""
+        **Step 1:** Click this link to open MicroStrategy login in a new tab:
+        
+        <a href="{login_url}" target="_blank" class="auth-button">🚀 Open MicroStrategy Login</a>
+        
+        **Step 2:** Complete your SAML authentication in that tab
+        
+        **Step 3:** Return here and click the button below to continue
+        """, unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns([1, 1, 1])
         
         with col2:
-            # Method 1: Direct redirect approach
-            if st.button("🚀 Login with SAML", key="saml_login", use_container_width=True):
-                # Redirect to SAML login
-                login_url = f"{MSTR_CONFIG['library_url']}/#/login"
-                st.markdown(f"""
-                <script>
-                    window.open('{login_url}', '_blank');
-                </script>
-                """, unsafe_allow_html=True)
-                st.success("Please complete login in the new tab, then return here and click 'Check Authentication'")
-            
-            st.markdown("---")
-            
-            # Method 2: Embedded login
-            st.markdown("#### Or login directly below:")
-            
-            # Create embedded SAML login
-            login_component = create_saml_login_component()
-            components.html(login_component, height=520)
-            
-            st.markdown("---")
-            
-            # Manual auth check button
-            if st.button("✅ Check Authentication Status", key="check_auth"):
-                auth = MicroStrategySAMLAuth()
-                result = auth.validate_session()
-                
-                if result.get("success"):
-                    st.session_state.authenticated = True
-                    st.session_state.auth_token = result.get("token", "authenticated")
-                    st.success("🎉 Authentication successful! Loading dashboard...")
-                    st.rerun()
-                else:
-                    st.warning("Authentication not complete. Please ensure you've logged in successfully.")
-            
-            # Demo mode for testing
-            st.markdown("---")
-            st.markdown("##### For Testing:")
-            if st.button("🧪 Demo Mode (Skip Auth)", key="demo_mode"):
-                st.session_state.authenticated = True
-                st.session_state.auth_token = "demo_token"
-                st.success("Demo mode activated!")
-                st.rerun()
+            if st.button("✅ I've Logged In - Continue", key="check_auth_manual", use_container_width=True):
+                with st.spinner("Verifying authentication..."):
+                    auth = MicroStrategySAMLAuth()
+                    result = auth.validate_session()
+                    
+                    if result.get("success") and result.get("authenticated"):
+                        st.session_state.authenticated = True
+                        st.success("🎉 Authentication verified! Loading dashboard...")
+                        st.rerun()
+                    else:
+                        st.error("❌ Authentication not detected. Please ensure you completed the login process.")
+                        st.info("Try refreshing the login tab and completing the authentication again.")
+        
+        st.markdown("---")
+        
+        # Method 2: Embedded login
+        st.markdown("#### Option 2: Login Below (Embedded)")
+        st.info("Complete your SAML authentication in the frame below, then click 'Check Authentication'")
+        
+        # Create embedded login iframe
+        iframe_component = create_saml_login_iframe()
+        components.html(iframe_component, height=650)
+        
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            if st.button("✅ Check Authentication Status", key="check_auth_iframe", use_container_width=True):
+                with st.spinner("Checking authentication..."):
+                    auth = MicroStrategySAMLAuth()
+                    result = auth.validate_session()
+                    
+                    if result.get("success") and result.get("authenticated"):
+                        st.session_state.authenticated = True
+                        st.success("🎉 Authentication successful! Loading dashboard...")
+                        st.rerun()
+                    else:
+                        st.warning("Authentication not complete. Please ensure you've logged in successfully in the frame above.")
         
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Instructions
-        with st.expander("ℹ️ Login Instructions"):
+        # Troubleshooting section
+        with st.expander("🔧 Troubleshooting"):
             st.markdown("""
-            **How to login:**
+            **If authentication isn't working:**
             
-            1. **Option 1 - New Tab Login:**
-               - Click "Login with SAML" button
-               - Complete authentication in the new tab
-               - Return here and click "Check Authentication Status"
+            1. **Browser Issues:**
+               - Try disabling ad blockers
+               - Enable third-party cookies
+               - Clear browser cache and cookies
             
-            2. **Option 2 - Embedded Login:**
-               - Use the login form above
-               - Complete the SAML authentication
-               - The page will automatically detect successful login
+            2. **Login Process:**
+               - Make sure you complete the entire SAML flow
+               - Look for the MicroStrategy library interface after login
+               - Don't close the login tab until you see the main interface
             
-            **Troubleshooting:**
-            - If login doesn't work, try refreshing the page
-            - Ensure pop-ups are enabled in your browser
-            - Contact your administrator if you continue to have issues
+            3. **Still having issues?**
+               - Try refreshing this entire page
+               - Use a different browser
+               - Contact your system administrator
+            
+            **Debug Information:**
+            - Login URL: `{login_url}`
+            - Expected after login: You should see the MicroStrategy Library interface
             """)
+            
+            # Add a debug check button
+            if st.button("🔍 Debug - Check Current Status"):
+                auth = MicroStrategySAMLAuth()
+                result = auth.validate_session()
+                st.json({
+                    "Authentication Check": result,
+                    "Expected Login URL": login_url,
+                    "Session State": {
+                        "authenticated": st.session_state.authenticated,
+                        "auth_checked": st.session_state.auth_checked
+                    }
+                })
     
     else:
         # Dashboard Screen
         st.success(f"🎉 Welcome! You are successfully authenticated.")
         
-        # Logout button in the corner
-        col1, col2, col3 = st.columns([6, 1, 1])
+        # Logout and refresh buttons
+        col1, col2, col3 = st.columns([5, 1, 1])
+        with col2:
+            if st.button("🔄 Refresh Auth", key="refresh_auth"):
+                st.session_state.auth_checked = False
+                st.rerun()
         with col3:
             if st.button("🚪 Logout", key="logout"):
                 st.session_state.authenticated = False
-                st.session_state.auth_token = None
+                st.session_state.auth_checked = False
+                st.info("Logged out. Note: You may need to close your browser to fully log out of SAML.")
                 st.rerun()
         
         st.markdown("---")
@@ -323,7 +328,7 @@ def main():
             st.json({
                 "Environment": "MicroStrategy Tutorial",
                 "Project ID": MSTR_CONFIG["project_id"],
-                "Object ID": MSTR_CONFIG["object_id"],
+                "Object ID": MSTR_CONFIG["object_id"], 
                 "Base URL": MSTR_CONFIG["base_url"]
             })
 
